@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const BACKEND_IP = '192.168.150.17'; 
+const BACKEND_IP = '192.168.150.16'; 
 const API_URL = `http://${BACKEND_IP}:3000/api/users`;
 
 // Component để thêm người dùng mới

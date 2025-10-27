@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-// Sửa lỗi: Bỏ đuôi mở rộng .jsx khỏi lệnh import để hệ thống biên dịch tìm thấy file
+
 import UserList from './UserList'; 
 import AddUser from './AddUser'; 
 
-const API_URL = 'http://192.168.150.17:3000/api/users';
+const API_URL = 'http://192.168.150.16:3000/api/users';
 
 function App() {
   const [users, setUsers] = useState([]);
@@ -33,7 +33,7 @@ function App() {
     fetchUsers();
   }, []); 
 
-  // Xử lý khi người dùng mới được thêm thành công (từ AddUser.jsx)
+
   // Cập nhật state cục bộ thay vì gọi lại API GET
   const handleUserAdded = (newUser) => {
     setUsers((prevUsers) => [newUser, ...prevUsers]); 

@@ -1,6 +1,6 @@
 import React from 'react';
 
-// SỬA LỖI: Cung cấp giá trị mặc định users = [] để tránh lỗi 'reading length of undefined'
+
 const UserList = ({ users = [] }) => (
   <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
     <h2 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
