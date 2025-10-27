@@ -1,41 +1,50 @@
-// 1. Dữ liệu tạm thời (Mô phỏng Database)
-let users = [
-    { id: 1, name: 'Tran', email: 'Tran@example.com' },
-    { id: 2, name: 'Khoi', email: 'Khoi@example.com' },
-];
-let nextId = 3; // Biến dùng để tạo ID mới
+// File: backend/controllers/userController.js
 
-// 2. [GET /users] - Lấy tất cả người dùng
-const getAllUsers = (req, res) => {
-    // Trả về mã 200 (OK) và mảng người dùng
-    res.status(200).json(users);
+const User = require('../models/User.js'); // <--- THÊM DÒNG NÀY
+
+// --- XÓA DÒNG NÀY ---
+// let users = [ ... ]; (Xóa toàn bộ mảng này)
+
+// --- THAY ĐỔI LỚN 1: Dùng async/await ---
+// Hàm này lấy tất cả người dùng
+const getAllUsers = async (req, res) => { // <-- Thêm async
+    try {
+        // Thay vì trả về mảng, chúng ta tìm trong CSDL
+        const users = await User.find(); // Tương đương "SELECT * FROM users"
+        res.status(200).json(users);
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 };
 
-// 3. [POST /users] - Tạo người dùng mới
-const createUser = (req, res) => {
-    // Lấy dữ liệu từ body của request
-    const { name, email } = req.body; 
-
-    // Kiểm tra dữ liệu đầu vào
-    if (!name || !email) {
-        return res.status(400).json({ message: 'Tên và Email là bắt buộc.' });
-    }
-
-    // Tạo đối tượng người dùng mới
-    const newUser = {
-        id: nextId++,
+// --- THAY ĐỔI LỚN 2: Dùng async/await và Model ---
+// Hàm này tạo một người dùng mới
+const createUser = async (req, res) => { // <-- Thêm async
+    // Lấy thông tin user mới từ request body
+    const { name, email } = req.body;
+    
+    // Tạo một đối tượng User mới dựa trên Model
+    const newUser = new User({
         name,
         email
-    };
+    });
 
-    // Thêm vào mảng tạm
-    users.push(newUser);
+    try {
+        // Lưu user mới vào CSDL
+        await newUser.save(); 
+        
+        // Giống Hoạt động 3: Lấy lại toàn bộ danh sách và trả về
+        const allUsers = await User.find();
+        res.status(201).json(allUsers); // 201 = Created
 
-    // Trả về mã 201 (Created) và đối tượng mới tạo
-    res.status(201).json({ message: 'Tạo người dùng thành công', user: newUser });
+    } catch (error) {
+        // (Nếu email bị trùng, nó cũng sẽ báo lỗi ở đây)
+        res.status(400).json({ message: error.message }); // 400 = Bad Request
+    }
 };
 
-// 4. Export các hàm để Route có thể sử dụng
+// Đừng quên export các hàm này
 module.exports = {
     getAllUsers,
     createUser
