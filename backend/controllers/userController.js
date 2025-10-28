@@ -1,37 +1,45 @@
-// 1. Dữ liệu tạm thời (Mô phỏng Database)
-let users = [
-    { id: 1, name: 'Tran', email: 'Tran@example.com' },
-    { id: 2, name: 'Khoi', email: 'Khoi@example.com' },
-];
-let nextId = 3; // Biến dùng để tạo ID mới
-// 2. [GET /users] - Lấy tất cả người dùng
-const getAllUsers = (req, res) => {
-    // Trả về mã 200 (OK) và mảng người dùng
-    res.status(200).json(users);
+// controllers/userController.js
+let users = []; // Mảng tạm để lưu trữ user, thay thế bằng MongoDB sau [cite: 52, 115]
+let nextId = 1;
+
+// GET: Lấy tất cả User
+exports.getUsers = (req, res) => {
+    res.json(users);
 };
-// 3. [POST /users] - Tạo người dùng mới
-const createUser = (req, res) => {
-    
-    console.log('Dữ liệu nhận được từ Frontend (req.body):', req.body);
-    // Lấy dữ liệu từ body của request
-    const { name, email } = req.body; 
-    // Kiểm tra dữ liệu đầu vào
-    if (!name || !email) {
-        // Nếu req.body là {} (rỗng), lỗi này sẽ xảy ra
-        return res.status(400).json({ message: 'Tên và Email là bắt buộc. (Lỗi: Dữ liệu JSON bị thiếu)' });
-    }
+
+// POST: Tạo User mới
+exports.createUser = (req, res) => {
     const newUser = {
         id: nextId++,
-        name,
-        email
+        ...req.body // Lấy name và email từ body
     };
-    // Thêm vào mảng tạm
     users.push(newUser);
-    // Trả về mã 201 (Created) và đối tượng mới tạo
     res.status(201).json(newUser);
 };
-// 4. Export các hàm để Route có thể sử dụng
-module.exports = {
-    getAllUsers,
-    createUser
+
+// PUT: Cập nhật User [cite: 116]
+exports.updateUser = (req, res) => {
+    const { id } = req.params; // Lấy id từ URL [cite: 118]
+    const updateData = req.body; // Dữ liệu cần cập nhật [cite: 121]
+    
+    // Tìm index của user [cite: 119, 120]
+    const index = users.findIndex(u => u.id == id); 
+    
+    if (index !== -1) { // Nếu tìm thấy [cite: 122]
+        users[index] = { ...users[index], ...updateData }; // Cập nhật user [cite: 123]
+        res.json(users[index]); // Trả về user đã được cập nhật [cite: 124]
+    } else {
+        res.status(404).json({ message: "User not found" }); // Báo lỗi 404 [cite: 126]
+    }
+};
+
+// DELETE: Xóa User [cite: 129]
+exports.deleteUser = (req, res) => {
+    const { id } = req.params; // Lấy id từ URL [cite: 132]
+    
+    // Lọc ra user có id không khớp, tức là xóa user đó [cite: 133]
+    users = users.filter(u => u.id != id); 
+    
+    // Trả về thông báo thành công (200 OK) [cite: 134]
+    res.json({ message: "User deleted" });
 };
