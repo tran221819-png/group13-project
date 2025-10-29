@@ -7,11 +7,12 @@ const userRoutes = require('./routes/user');
 
 // 2. CẤU HÌNH CORS VỚI CẢ IP VÀ LOCALHOST
 // Cho phép cả IP thực tế (để gọi từ máy khác) và localhost (khi chạy trên cùng máy)
-const allowedOrigins = [
-  'http://192.168.150.13:3000', // IP Frontend
-  'http://localhost:3000'      // Localhost (nơi Frontend đang chạy)
-];
 
+app.use(cors({
+  origin: 'http://localhost:3000', // Hoặc dùng '*' để chấp nhận mọi nguồn
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
 app.use(cors({
   origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],

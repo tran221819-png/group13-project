@@ -19,11 +19,9 @@ exports.createUser = (req, res) => {
 
 // PUT: Cập nhật User [cite: 116]
 exports.updateUser = (req, res) => {
-    const { id } = req.params; // Lấy id từ URL [cite: 118]
-    const updateData = req.body; // Dữ liệu cần cập nhật [cite: 121]
-    
-    // Tìm index của user [cite: 119, 120]
-    const index = users.findIndex(u => u.id == id); 
+    const { id } = req.params; 
+    // 🟢 SỬA LỖI: Sử dụng Number(id) để chuyển chuỗi ID từ URL thành số
+    const index = users.findIndex(u => u.id === Number(id)); 
     
     if (index !== -1) { // Nếu tìm thấy [cite: 122]
         users[index] = { ...users[index], ...updateData }; // Cập nhật user [cite: 123]
@@ -35,10 +33,9 @@ exports.updateUser = (req, res) => {
 
 // DELETE: Xóa User [cite: 129]
 exports.deleteUser = (req, res) => {
-    const { id } = req.params; // Lấy id từ URL [cite: 132]
-    
-    // Lọc ra user có id không khớp, tức là xóa user đó [cite: 133]
-    users = users.filter(u => u.id != id); 
+    const { id } = req.params; 
+    // 🟢 SỬA LỖI: Sử dụng Number(id)
+    users = users.filter(u => u.id !== Number(id));
     
     // Trả về thông báo thành công (200 OK) [cite: 134]
     res.json({ message: "User deleted" });
