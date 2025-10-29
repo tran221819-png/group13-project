@@ -1,106 +1,126 @@
-import React, { useState } from 'react';
+// AddUser.jsx (Hoặc đổi tên thành UserForm.jsx)
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const BACKEND_IP = '192.168.150.17'; 
-const API_URL = `http://${BACKEND_IP}:3000/api/users`;
+// Địa chỉ API (Sử dụng IP nội bộ của máy Backend)
+const API_BASE_URL = 'http://localhost:3000'; 
+// Đường dẫn /api/users khớp với server.js
+const API_USERS_ENDPOINT = `${API_BASE_URL}/api/users`;
 
-// Component để thêm người dùng mới
-const AddUser = ({ onUserAdded }) => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState(null);
+// Component nhận các props cho chế độ Sửa (editingUser) và các hàm callback
+const AddUser = ({ editingUser, onUserAdded, onUserUpdated, onCancelEdit }) => {
+    // State cục bộ quản lý form
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState(null);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
+    // useEffect: Điền dữ liệu vào form khi chuyển sang chế độ Sửa
+    useEffect(() => {
+        if (editingUser) {
+            // Chế độ Sửa: Điền dữ liệu hiện tại
+            setName(editingUser.name || '');
+            setEmail(editingUser.email || ''); 
+        } else {
+            // Chế độ Thêm: Reset form
+            setName('');
+            setEmail('');
+        }
+        setError(null);
+    }, [editingUser]);
 
-    // Kiểm tra đầu vào bắt buộc
-    if (!name.trim() || !email.trim()) {
-      setError("Tên và Email là bắt buộc.");
-      return;
-    }
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError(null);
 
-    setIsSubmitting(true);
-
-    try {
-      // Gửi yêu cầu POST lên Backend API
-      const response = await axios.post(API_URL, { name, email });
-      
-      // Xóa form sau khi gửi thành công
-      setName('');
-      setEmail('');
-      
-      // Gọi callback để cập nhật state trong component cha (App.js)
-      // Dữ liệu trả về từ API thường bao gồm ID mới
-      if (onUserAdded) {
-        onUserAdded(response.data);
-      }
-
-    } catch (err) {
-      console.error("Lỗi khi thêm người dùng:", err);
-      // Hiển thị lỗi từ server hoặc lỗi kết nối
-      const errorMessage = err.response?.data?.message || "Lỗi kết nối Backend hoặc lỗi Server.";
-      setError(errorMessage);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <div style={{ padding: '20px', marginBottom: '20px', border: '1px solid #ccc', borderRadius: '8px', backgroundColor: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-      <h2 style={{ marginBottom: '15px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
-        Thêm người dùng
-      </h2>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '15px' }}>
-          <input
-            type="text"
-            placeholder="Nhập Tên người dùng"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px', boxSizing: 'border-box' }}
-            disabled={isSubmitting}
-          />
-        </div>
-        <div style={{ marginBottom: '20px' }}>
-          <input
-            type="email"
-            placeholder="Nhập Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px', boxSizing: 'border-box' }}
-            disabled={isSubmitting}
-          />
-        </div>
+        // 🟢 VALIDATION (Hoạt động 8)
+        if (!name.trim()) {
+            setError("Tên không được để trống.");
+            return;
+        }
+        // Validation cho Email
+        if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) { 
+            setError("Email là bắt buộc và phải hợp lệ (ví dụ: a@b.com).");
+            return;
+        }
         
-        {error && (
-          <p style={{ color: '#dc3545', backgroundColor: '#f8d7da', padding: '10px', borderRadius: '4px', marginBottom: '15px' }}>
-            {error}
-          </p>
-        )}
+        setIsSubmitting(true);
+        // Dữ liệu gửi đi bao gồm cả name và email
+        const data = { name, email }; 
+        
+        try {
+            if (editingUser) {
+                // 🟢 TRƯỜNG HỢP 1: CẬP NHẬT (PUT)
+                const apiUrl = `${API_USERS_ENDPOINT}/${editingUser.id}`;
+                const response = await axios.put(apiUrl, data);
+                
+                onUserUpdated(response.data); // Cập nhật state ở App.js
+                alert("Cập nhật người dùng thành công!");
+            } else {
+                // 🟢 TRƯỜNG HỢP 2: THÊM MỚI (POST)
+                const response = await axios.post(API_USERS_ENDPOINT, data); 
+                
+                onUserAdded(response.data); // Cập nhật state ở App.js
+                alert("Thêm người dùng thành công!");
+                
+                // Reset form sau khi thêm
+                setName('');
+                setEmail('');
+            }
+        } catch (err) {
+            console.error("Lỗi khi gửi dữ liệu:", err);
+            setError("Lỗi kết nối hoặc lỗi server. Vui lòng kiểm tra Server Node.js đã chạy chưa.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          style={{
-            width: '100%',
-            padding: '12px',
-backgroundColor: isSubmitting ? '#90CAF9' : '#1e88e5',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: isSubmitting ? 'not-allowed' : 'pointer',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            transition: 'background-color 0.3s'
-          }}
-        >
-          {isSubmitting ? 'Đang thêm...' : 'Thêm'}
-        </button>
-      </form>
-    </div>
-  );
+    const formTitle = editingUser ? `SỬA NGƯỜI DÙNG ID: ${editingUser.id}` : 'Thêm người dùng';
+    const buttonText = editingUser ? 'Cập nhật' : 'Thêm';
+
+    return (
+        <div style={{ padding: '20px', border: '1px solid #ccc', borderRadius: '8px', marginBottom: '20px' }}>
+            <h3 style={{ marginTop: 0, color: editingUser ? '#007bff' : '#333' }}>{formTitle}</h3>
+            <form onSubmit={handleSubmit}>
+                {/* INPUT TÊN */}
+                <input 
+                    type="text"
+                    placeholder="Nhập Tên người dùng"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={isSubmitting}
+                    style={{ padding: '10px', margin: '5px 0', width: '97%', display: 'block', border: '1px solid #ddd' }}
+                />
+                
+                {/* 🟢 INPUT EMAIL */}
+                <input 
+                    type="email"
+                    placeholder="Nhập Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isSubmitting}
+                    style={{ padding: '10px', margin: '5px 0', width: '97%', display: 'block', border: '1px solid #ddd' }}
+                />
+                
+                {error && <p style={{ color: 'red' }}>{error}</p>}
+                
+                <div style={{ marginTop: '15px' }}>
+                    <button type="submit" disabled={isSubmitting} 
+                        style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                        {isSubmitting ? 'Đang xử lý...' : buttonText}
+                    </button>
+                    
+                    {/* Nút Hủy chỉ hiển thị trong chế độ Sửa */}
+                    {editingUser && (
+                        <button type="button" onClick={onCancelEdit} 
+                            style={{ marginLeft: '10px', padding: '10px 20px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                            Hủy
+                        </button>
+                    )}
+                </div>
+            </form>
+        </div>
+    );
 };
 
 export default AddUser;
