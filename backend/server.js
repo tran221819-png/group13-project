@@ -1,6 +1,5 @@
 // Import các thư viện cần thiết
 const express = require('express');
-const bodyParser = require('body-parser');
 const cors = require('cors'); // Đảm bảo bạn đã cài đặt: npm install cors
 
 // Khởi tạo ứng dụng Express
@@ -11,14 +10,14 @@ const PORT = 5000;
 const userController = require('./controllers/userController'); 
 
 // --- MIDDLEWARE ---
-// Sử dụng body-parser để phân tích dữ liệu JSON trong yêu cầu
-app.use(bodyParser.json());
+// Tối ưu: Chỉ cần dùng express.json() để phân tích dữ liệu JSON (thay thế body-parser.json())
+app.use(express.json());
 
 // Cấu hình CORS để chỉ cho phép Frontend từ localhost:3000 truy cập
 app.use(cors({
-  origin: 'http://localhost:3000', 
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
+    origin: 'http://localhost:3000', 
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true
 }));
 
 // --- ĐỊNH TUYẾN (ROUTES) TRỰC TIẾP TRONG server.js ---
@@ -39,5 +38,5 @@ app.delete('/api/users/:id', userController.deleteUser);
 
 // Lắng nghe cổng
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`Server is running on http://localhost:${PORT}`);
 });
