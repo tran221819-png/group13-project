@@ -1,51 +1,65 @@
-// File: backend/controllers/userController.js
 
-const User = require('../models/User.js'); // <--- THÊM DÒNG NÀY
+// controllers/userController.js
+let users = []; // Mảng tạm để lưu trữ user, thay thế bằng MongoDB sau [cite: 52, 115]
+let nextId = 1;
 
-// --- XÓA DÒNG NÀY ---
-// let users = [ ... ]; (Xóa toàn bộ mảng này)
-
-// --- THAY ĐỔI LỚN 1: Dùng async/await ---
-// Hàm này lấy tất cả người dùng
-const getAllUsers = async (req, res) => { // <-- Thêm async
-    try {
-        // Thay vì trả về mảng, chúng ta tìm trong CSDL
-        const users = await User.find(); // Tương đương "SELECT * FROM users"
-        res.status(200).json(users);
-
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+// GET: Lấy tất cả người dùng
+exports.getUsers = (req, res) => {
+    res.json(users);
 };
 
-// --- THAY ĐỔI LỚN 2: Dùng async/await và Model ---
-// Hàm này tạo một người dùng mới
-const createUser = async (req, res) => { // <-- Thêm async
-    // Lấy thông tin user mới từ request body
+// POST: Tạo người dùng mới
+exports.createUser = (req, res) => {
     const { name, email } = req.body;
-    
-    // Tạo một đối tượng User mới dựa trên Model
-    const newUser = new User({
-        name,
-        email
-    });
+    if (!name || !email) {
+        return res.status(400).json({ message: "Name and email are required" });
+    }
+    const newUser = { id: nextId++, name, email };
+    users.push(newUser);
+    res.status(201).json(newUser);
+};
 
-    try {
-        // Lưu user mới vào CSDL
-        await newUser.save(); 
-        
-        // Giống Hoạt động 3: Lấy lại toàn bộ danh sách và trả về
-        const allUsers = await User.find();
-        res.status(201).json(allUsers); // 201 = Created
+// PUT: Sửa user (DÙNG MẢNG TẠM)
+exports.updateUser = (req, res) => {
+    // 1. Lấy ID từ URL (luôn là string)
+    const { id } = req.params; 
+    const { name, email } = req.body; // Lấy dữ liệu mới từ body
 
-    } catch (error) {
-        // (Nếu email bị trùng, nó cũng sẽ báo lỗi ở đây)
-        res.status(400).json({ message: error.message }); // 400 = Bad Request
+    // 2. Chuyển đổi ID từ string sang number để so sánh với id trong mảng
+    const targetId = parseInt(id); 
+
+    // 3. Tìm index của người dùng
+    const index = users.findIndex(u => u.id === targetId);
+
+    if (index !== -1) {
+        // 4. Cập nhật thông tin
+        users[index] = {
+            ...users[index], // Giữ lại các thuộc tính cũ (ví dụ: id)
+            name: name,      // Cập nhật tên mới
+            email: email     // Cập nhật email mới
+        };
+
+        // 5. Trả về đối tượng đã được cập nhật
+        res.json(users[index]);
+    } else {
+        // Không tìm thấy user
+        res.status(404).json({ message: "User not found" });
     }
 };
 
-// Đừng quên export các hàm này
-module.exports = {
-    getAllUsers,
-    createUser
+// DELETE: Xóa user
+exports.deleteUser = (req, res) => {
+    const { id } = req.params;
+    const targetId = parseInt(id);
+
+    // Filter ra khỏi mảng những user có id khác với id cần xóa
+    const initialLength = users.length;
+    users = users.filter(u => u.id !== targetId);
+
+    if (users.length < initialLength) {
+        res.json({ message: `User with ID ${id} deleted successfully` });
+    } else {
+        res.status(404).json({ message: "User not found" });
+    }
+
 };
