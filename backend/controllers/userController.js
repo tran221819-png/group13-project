@@ -2,41 +2,62 @@
 let users = []; // Mảng tạm để lưu trữ user, thay thế bằng MongoDB sau [cite: 52, 115]
 let nextId = 1;
 
-// GET: Lấy tất cả User
+// GET: Lấy tất cả người dùng
 exports.getUsers = (req, res) => {
     res.json(users);
 };
 
-// POST: Tạo User mới
+// POST: Tạo người dùng mới
 exports.createUser = (req, res) => {
-    const newUser = {
-        id: nextId++,
-        ...req.body // Lấy name và email từ body
-    };
+    const { name, email } = req.body;
+    if (!name || !email) {
+        return res.status(400).json({ message: "Name and email are required" });
+    }
+    const newUser = { id: nextId++, name, email };
     users.push(newUser);
     res.status(201).json(newUser);
 };
 
-// PUT: Cập nhật User [cite: 116]
+// PUT: Sửa user (DÙNG MẢNG TẠM)
 exports.updateUser = (req, res) => {
+    // 1. Lấy ID từ URL (luôn là string)
     const { id } = req.params; 
-    // 🟢 SỬA LỖI: Sử dụng Number(id) để chuyển chuỗi ID từ URL thành số
-    const index = users.findIndex(u => u.id === Number(id)); 
-    
-    if (index !== -1) { // Nếu tìm thấy [cite: 122]
-        users[index] = { ...users[index], ...updateData }; // Cập nhật user [cite: 123]
-        res.json(users[index]); // Trả về user đã được cập nhật [cite: 124]
+    const { name, email } = req.body; // Lấy dữ liệu mới từ body
+
+    // 2. Chuyển đổi ID từ string sang number để so sánh với id trong mảng
+    const targetId = parseInt(id); 
+
+    // 3. Tìm index của người dùng
+    const index = users.findIndex(u => u.id === targetId);
+
+    if (index !== -1) {
+        // 4. Cập nhật thông tin
+        users[index] = {
+            ...users[index], // Giữ lại các thuộc tính cũ (ví dụ: id)
+            name: name,      // Cập nhật tên mới
+            email: email     // Cập nhật email mới
+        };
+
+        // 5. Trả về đối tượng đã được cập nhật
+        res.json(users[index]);
     } else {
-        res.status(404).json({ message: "User not found" }); // Báo lỗi 404 [cite: 126]
+        // Không tìm thấy user
+        res.status(404).json({ message: "User not found" });
     }
 };
 
-// DELETE: Xóa User [cite: 129]
+// DELETE: Xóa user
 exports.deleteUser = (req, res) => {
-    const { id } = req.params; 
-    // 🟢 SỬA LỖI: Sử dụng Number(id)
-    users = users.filter(u => u.id !== Number(id));
-    
-    // Trả về thông báo thành công (200 OK) [cite: 134]
-    res.json({ message: "User deleted" });
+    const { id } = req.params;
+    const targetId = parseInt(id);
+
+    // Filter ra khỏi mảng những user có id khác với id cần xóa
+    const initialLength = users.length;
+    users = users.filter(u => u.id !== targetId);
+
+    if (users.length < initialLength) {
+        res.json({ message: `User with ID ${id} deleted successfully` });
+    } else {
+        res.status(404).json({ message: "User not found" });
+    }
 };

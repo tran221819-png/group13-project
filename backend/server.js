@@ -1,30 +1,43 @@
+// Import các thư viện cần thiết
 const express = require('express');
-const cors = require('cors'); 
+const bodyParser = require('body-parser');
+const cors = require('cors'); // Đảm bảo bạn đã cài đặt: npm install cors
+
+// Khởi tạo ứng dụng Express
 const app = express();
+const PORT = 5000;
 
-// 1. KHAI BÁO ROUTES TRƯỚC KHI SỬ DỤNG
-const userRoutes = require('./routes/user'); 
+// Import Controller chứa logic xử lý
+const userController = require('./controllers/userController'); 
 
-// 2. CẤU HÌNH CORS VỚI CẢ IP VÀ LOCALHOST
-// Cho phép cả IP thực tế (để gọi từ máy khác) và localhost (khi chạy trên cùng máy)
+// --- MIDDLEWARE ---
+// Sử dụng body-parser để phân tích dữ liệu JSON trong yêu cầu
+app.use(bodyParser.json());
 
+// Cấu hình CORS để chỉ cho phép Frontend từ localhost:3000 truy cập
 app.use(cors({
-  origin: 'http://localhost:3000', // Hoặc dùng '*' để chấp nhận mọi nguồn
+  origin: 'http://localhost:3000', 
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
-app.use(cors({
-  origin: allowedOrigins,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
-}));
 
-// 3. MIDDLEWARE ĐỌC JSON BODY
-app.use(express.json()); 
+// --- ĐỊNH TUYẾN (ROUTES) TRỰC TIẾP TRONG server.js ---
+// Base URL cho tất cả routes là /api/users
 
-// 4. SỬ DỤNG ROUTES
-app.use('/api', userRoutes); 
+// GET /api/users - Lấy tất cả user
+app.get('/api/users', userController.getUsers);
 
-// 5. KHỞI CHẠY SERVER
-const PORT = process.env.PORT || 3000; 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// POST /api/users - Tạo user mới
+app.post('/api/users', userController.createUser);
+
+// PUT /api/users/:id - Cập nhật user theo ID
+app.put('/api/users/:id', userController.updateUser);
+
+// DELETE /api/users/:id - Xóa user theo ID
+app.delete('/api/users/:id', userController.deleteUser);
+
+
+// Lắng nghe cổng
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
