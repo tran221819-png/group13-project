@@ -1,55 +1,50 @@
-// UserList.jsx
 import React from 'react';
-import axios from 'axios'; 
 
-// Đưa URL ra ngoài component để dễ quản lý và sử dụng lại
-const API_BASE_URL = 'http://localhost:3000'; 
-// Đường dẫn /api/users khớp với server.js
-const API_USERS_ENDPOINT = `${API_BASE_URL}/api/users`;
-
-// Cần nhận setUsers và handleEdit từ component cha
-const UserList = ({ users = [], setUsers, handleEdit }) => {
-    
-    // Xử lý sự kiện Xóa
-    const handleDelete = async (id) => {
-        if (!window.confirm("Bạn có chắc chắn muốn xóa người dùng này không?")) {
-            return;
-        }
-
-        try {
-            // Gọi API DELETE sử dụng endpoint đã định nghĩa
-            await axios.delete(`${API_USERS_ENDPOINT}/${id}`); 
-            
-            // Cập nhật state theo yêu cầu Hoạt động 7
-            setUsers(users.filter(user => user.id !== id)); 
-            alert("Xóa người dùng thành công!");
-        } catch (error) {
-            console.error("Lỗi khi xóa người dùng:", error);
-            alert("Đã xảy ra lỗi khi xóa người dùng.");
-        }
-    };
-
-    return (
-        // ... code giao diện ...
-        <ul style={{ listStyleType: 'none', padding: 0 }}>
-            {users.map((user) => (
-                <li key={user.id || user.name}>
-                    <div>
-                        <strong>Tên:</strong> {user.name} - <strong>Email:</strong> {user.email}
-                    </div>
-                    
-                    <div>
-                        {/* Nút Sửa */}
-                        <button onClick={() => handleEdit(user)}>Sửa</button> 
-                        
-                        {/* Nút Xóa */}
-                        <button onClick={() => handleDelete(user.id)}>Xóa</button> 
-                    </div>
-                </li>
-            ))}
-        </ul>
-        // ... code giao diện ...
-    );
+// Component này nhận danh sách người dùng, handleDelete và handleEdit từ App.js
+const UserList = ({ users, handleDelete, handleEdit, handleUpdate }) => {
+    return (
+        <div style={{ marginTop: '20px', borderTop: '1px solid #ccc', paddingTop: '20px' }}>
+            <h2 style={{ color: '#007bff' }}>Danh Sách Người Dùng ({users.length})</h2>
+            {users.length === 0 ? (
+                <p style={{ fontStyle: 'italic' }}>Không có người dùng nào được tìm thấy.</p>
+            ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead>
+                        <tr style={{ borderBottom: '2px solid #333' }}>
+                            <th style={{ padding: '8px' }}>ID</th>
+                            <th style={{ padding: '8px' }}>Tên</th>
+                            <th style={{ padding: '8px' }}>Email</th>
+                            <th style={{ padding: '8px' }}>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {users.map(user => (
+                            <tr key={user.id} style={{ borderBottom: '1px solid #eee' }}>
+                                <td style={{ padding: '8px' }}>{user.id}</td>
+                                <td style={{ padding: '8px' }}>{user.name}</td>
+                                <td style={{ padding: '8px' }}>{user.email}</td>
+                                <td style={{ padding: '8px' }}>
+                                    {/* Gọi hàm handleEdit được truyền từ App.js */}
+                                    <button 
+                                        onClick={() => handleEdit(user)}
+                                        style={{ marginRight: '10px', padding: '5px 10px', backgroundColor: '#ffc107', color: 'black', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+                                    >
+                                        Sửa
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDelete(user.id)}
+                                        style={{ padding: '5px 10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+                                    >
+                                        Xóa
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
+        </div>
+    );
 };
 
 export default UserList;
