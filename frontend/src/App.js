@@ -8,6 +8,24 @@ import EditUser from './EditUser';
 // Cấu hình URL Backend
 const API_BASE_URL = 'http://localhost:5000'; // Dựa trên mã bạn cung cấp
 const API_USERS_ENDPOINT = `${API_BASE_URL}/api/users`;
+const api = axios.create({
+    baseURL: API_BASE_URL,
+    // Bạn có thể thêm các headers chung ở đây nếu cần
+});
+
+// Thêm Interceptor để đính kèm token vào mọi request
+api.interceptors.request.use((config) => {
+    // Lấy token từ Local Storage (Nơi Login.jsx đã lưu)
+    const token = localStorage.getItem('token'); 
+    
+    if (token) {
+        // Đính kèm token vào Header Authorization theo chuẩn Bearer Token
+        config.headers.Authorization = `Bearer ${token}`; 
+    }
+    return config;
+}, (error) => {
+    return Promise.reject(error);
+});
 
 function App() {
   const [users, setUsers] = useState([]);
@@ -21,7 +39,7 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get(API_USERS_ENDPOINT);
+      const response = await api.get('/users');
       setUsers(response.data); 
     } catch (err) {
       console.error("Lỗi khi tải danh sách:", err);
@@ -49,7 +67,7 @@ function App() {
     }
 
     try {
-      await axios.delete(`${API_USERS_ENDPOINT}/${id}`); // GỌI DELETE
+      await api.delete(`/users/${id}`); // GỌI DELETE
       // Lọc bỏ người dùng đã xóa khỏi state
       setUsers(users.filter(user => user.id !== id)); 
     } catch (err) {
@@ -73,8 +91,7 @@ function App() {
   const handleUpdate = async (id, updatedData) => {
     try {
       // GỌI PUT tới /api/users/:id
-      const response = await axios.put(`${API_USERS_ENDPOINT}/${id}`, updatedData);
-
+      const response = await api.put(`/users/${id}`, updatedData)
       // Cập nhật state (thay thế đối tượng cũ bằng đối tượng mới trả về)
       setUsers(users.map(user => 
         user.id === id ? response.data : user
@@ -112,7 +129,8 @@ function App() {
           <AddUser 
             onUserAdded={handleUserAdded} 
             apiEndpoint={API_USERS_ENDPOINT} 
-          />
+            api={api} // <--- BƯỚC 1: TRUYỀN INSTANCE 'api' XUỐNG
+         />
         )}
       </div>
       
