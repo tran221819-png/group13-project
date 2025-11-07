@@ -1,57 +1,68 @@
+// Cần để đọc MONGO_URI
+const dotenv = require('dotenv'); 
+// Cần cho MongoDB
+const mongoose = require('mongoose'); 
 const express = require('express');
-const mongoose = require('mongoose'); // Cần cho MongoDB
-const dotenv = require('dotenv'); // Cần để đọc MONGO_URI
+
 const cors = require('cors'); 
 
-// Import Tuyến đường Auth và User
-// Lưu ý: Tuyến đường này phải sử dụng cú pháp CommonJS (require)
-const authRoutes = require('./routes/auth'); // Tuyến đường cho Đăng ký/Đăng nhập
-const userRoutes = require('./routes/user'); // Tuyến đường cho CRUD User
+// --- 1. Import Tuyến đường ---
+// Tuyến đường cho Đăng ký/Đăng nhập
+const auth = require('./routes/auth'); 
+// Tuyến đường cho CRUD User (Đã đổi tên biến thành 'user')
+const user = require('./routes/user'); 
 
 // Load biến môi trường từ .env
 dotenv.config();
 
 // Khởi tạo ứng dụng Express
 const app = express();
-// Lấy cổng từ .env hoặc mặc định là 5000
+
+// Lấy cổng và URI từ biến môi trường
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 
-// --- KẾT NỐI MONGODB (Quan trọng nhất) ---
+// Kiểm tra MONGO_URI trước khi kết nối (Khuyến nghị)
+if (!MONGO_URI) {
+    console.error('❌ LỖI: MONGO_URI không được định nghĩa trong file .env');
+    // Thoát ứng dụng nếu không có URI
+    process.exit(1);
+}
+
+// --- 2. KẾT NỐI MONGODB ---
 mongoose.connect(MONGO_URI)
     .then(() => console.log('✅ MongoDB database connection established successfully!'))
-    .catch(err => console.error('❌ MongoDB connection error. Vui lòng kiểm tra MONGO_URI trong .env', err));
+    .catch(err => {
+        console.error('❌ MongoDB connection error. Vui lòng kiểm tra MONGO_URI trong .env', err);
+        // Thoát ứng dụng nếu kết nối DB thất bại
+        process.exit(1); 
+    });
 
 
-// --- MIDDLEWARE ---
+// --- 3. MIDDLEWARE ---
 // Cấu hình CORS để chỉ cho phép Frontend từ localhost:3000 truy cập
 app.use(cors({
-    origin: 'http://localhost:3000', 
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true
+    origin: 'http://localhost:3000', 
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true
 }));
+
 // Cho phép Express đọc JSON từ request body
 app.use(express.json());
 
 
-// --- ĐỊNH TUYẾN (ROUTES) ---
-// 1. Tuyến đường XÁC THỰC (Hoạt động 1, Buổi 5)
-// Base URL: /auth (Frontend gọi /auth/login, /auth/signup)
-app.use('/auth', authRoutes); 
+// --- 4. ĐỊNH TUYẾN (ROUTES) ---
 
-// 2. Tuyến đường CRUD User (CRUD cũ từ Buổi 4)
-// Base URL: /users (Frontend gọi /users, /users/:id)
-// LƯU Ý: Nếu bạn dùng /api/users trước đây, bạn có thể thay đổi /users thành /api/users
-app.use('/users', userRoutes); 
+app.use('/api/auth', auth); 
+app.use('/api/users', user); 
 
 
-// Tuyến đường mặc định
+// Tuyến đường mặc định (Health Check)
 app.get('/', (req, res) => {
-    res.send(`Server Node.js đang chạy ổn định trên cổng ${PORT}.`);
+    res.status(200).send(`Server Node.js đang chạy ổn định trên cổng ${PORT}. Kết nối DB đã thiết lập.`);
 });
 
-
-// Lắng nghe cổng
+// --- 5. KHỞI CHẠY SERVER ---
 app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`Server is running on http://localhost:${PORT}`);
 });
