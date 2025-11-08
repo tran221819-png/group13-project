@@ -1,42 +1,48 @@
-// models/User.js
 const mongoose = require('mongoose');
-// Khai báo bcrypt (nếu muốn thêm logic mã hóa vào Model)
-const bcrypt = require('bcrypt'); 
+const bcrypt = require('bcrypt'); // Cần import bcrypt ở đây
 
-const userSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true
+const userSchema = mongoose.Schema(
+    {
+        name: {
+            type: String,
+            required: true,
+        },
+        email: {
+            type: String,
+            required: true,
+            unique: true, // Đảm bảo email là duy nhất
+        },
+        password: {
+            type: String,
+            required: true,
+        },
+        role: {
+            type: String,
+            default: 'User',
+        },
     },
-    email: {
-        type: String,
-        required: true,
-        unique: true, // BẮT BUỘC: Ngăn chặn trùng lặp email
-        trim: true
-    },
-    password: {
-        type: String,
-        required: true
-    },
-    role: {
-        type: String,
-        enum: ['User', 'Admin'], // Phân quyền cơ bản
-        default: 'User' 
-    },
-}, {
-    timestamps: true // Tự động thêm createdAt và updatedAt
-});
-
-/*
-// [TÙY CHỌN] Logic bảo mật nâng cao: Mã hóa mật khẩu tự động trong Model
-// Giúp đảm bảo mật khẩu luôn được hash ngay cả khi SV1 quên hash trong Controller
-userSchema.pre('save', async function(next) {
-    if (!this.isModified('password')) {
-        return next();
+    {
+        timestamps: true,
     }
-    this.password = await bcrypt.hash(this.password, 10);
-    next();
-});
-*/
+);
 
-module.exports = mongoose.model('User', userSchema);
+// Middleware Mongoose: Tự động hash mật khẩu trước khi lưu (pre 'save')
+// BƯỚC NÀY CỰC KỲ QUAN TRỌNG ĐỂ ĐẢM BẢO MẬT KHẨU LUÔN ĐƯỢC HASH
+userSchema.pre('save', async function (next) {
+    if (!this.isModified('password')) {
+        next();
+    }
+    // Dù bạn đã hash trong controller, việc này giúp code mạnh mẽ hơn.
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+});
+
+// THÊM phương thức so sánh mật khẩu vào Schema (Optional nhưng nên có)
+// Mặc dù bạn dùng bcrypt.compare trong controller, đây là cách chuẩn Mongoose
+userSchema.methods.matchPassword = async function (enteredPassword) {
+    return await bcrypt.compare(enteredPassword, this.password);
+};
+
+const User = mongoose.model('User', userSchema);
+
+module.exports = User;

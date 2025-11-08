@@ -1,129 +1,199 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 
-// Giả định backend chạy ở cổng 5000
-const API_URL = 'http://localhost:5000/auth'; 
+// Nhận handleSignup và handleLogin là các props được truyền từ App.js
+function AuthPage({ 
+    handleSignup, 
+    handleLogin, 
+    handleLogout, 
+    loginLoading, 
+    loginError, 
+    isAuthenticated, 
+    handleLoginErrorReset 
+}) { 
+    
+    // State cục bộ để chuyển đổi giữa Đăng nhập (true) và Đăng ký (false)
+    const [isLogin, setIsLogin] = useState(true); 
+    
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [name, setName] = useState('');
+    
+    // State cho thông báo lỗi/thành công Đăng ký
+    const [registerStatus, setRegisterStatus] = useState({ error: null, success: null });
+    const [isRegistering, setIsRegistering] = useState(false);
 
-const AuthPage = () => {
-  const [isLogin, setIsLogin] = useState(true); // true = Login, false = Sign Up
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
+    // Chức năng: Xử lý logic ĐĂNG KÝ (validation cục bộ)
+    const handleSignUpSubmit = async (e) => {
+        e.preventDefault();
+        setRegisterStatus({ error: null, success: null });
 
-  // Hàm chuyển đổi giữa Login và Sign Up
-  const toggleMode = () => {
-    setIsLogin(!isLogin);
-    setMessage('');
-    setName('');
-    setEmail('');
-    setPassword('');
-  };
-
-  const handleAuth = async (e) => {
-    e.preventDefault();
-    setMessage('');
-
-    try {
-      let endpoint = isLogin ? `${API_URL}/login` : `${API_URL}/signup`;
-      let data = isLogin 
-        ? { email, password } 
-        : { name, email, password };
-
-      const response = await axios.post(endpoint, data);
-
-      if (isLogin) {
-        // Đăng nhập thành công: Lưu JWT Token vào localStorage
-        const token = response.data.token;
-        localStorage.setItem('token', token);
-        setMessage('Đăng nhập thành công! Token đã được lưu. (Chuyển hướng người dùng...)');
-        // Ở ứng dụng thực tế: Thêm logic chuyển hướng đến trang Home/Profile
-        console.log('Token đã lưu:', token);
-      } else {
-        // Đăng ký thành công
-        setMessage('Đăng ký thành công! Vui lòng đăng nhập.');
-        setIsLogin(true); // Chuyển sang form Login
-      }
-    } catch (error) {
-      // Xử lý lỗi từ Backend
-      const errorMsg = error.response?.data?.message || 'Lỗi kết nối hoặc xử lý API.';
-      setMessage(`Lỗi: ${errorMsg}`);
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <div className="w-full max-w-md bg-white p-8 rounded-xl shadow-2xl border-t-4 border-indigo-500">
-        <h2 className="text-3xl font-extrabold text-gray-900 text-center mb-6">
-          {isLogin ? 'Đăng Nhập' : 'Đăng Ký Tài Khoản'}
-        </h2>
+        if (password !== confirmPassword) {
+            setRegisterStatus({ error: "Mật khẩu xác nhận không khớp.", success: null });
+            return;
+        }
         
-        <form onSubmit={handleAuth} className="space-y-6">
-          {!isLogin && (
-            <input
-              type="text"
-              placeholder="Họ và Tên"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required={!isLogin}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
-            />
-          )}
-          
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
-          />
-          
-          <input
-            type="password"
-            placeholder="Mật khẩu"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
-          />
-          
-          <button
-            type="submit"
-            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 transform hover:scale-[1.01]"
-          >
-            {isLogin ? 'Đăng Nhập' : 'Đăng Ký'}
-          </button>
-        </form>
+        if (password.length < 6) {
+             setRegisterStatus({ error: "Mật khẩu phải có ít nhất 6 ký tự.", success: null });
+             return;
+        }
 
-        {message && (
-          <div className={`mt-4 p-3 rounded-lg text-center ${message.startsWith('Lỗi') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-            {message}
-          </div>
-        )}
+        setIsRegistering(true);
+        try {
+            // GỌI HÀM handleSignup (PROP TỪ APP.JS)
+            const token = await handleSignup(name, email, password);
+            
+            if (!token) {
+                // Lỗi đăng ký (nếu không tự động đăng nhập)
+                setRegisterStatus({ 
+                    error: loginError || "Đăng ký thất bại. Vui lòng kiểm tra email đã tồn tại.", 
+                    success: null 
+                });
+            } else {
+                // Đăng ký thành công và tự động đăng nhập
+                setRegisterStatus({ 
+                    error: null, 
+                    success: "Đăng ký thành công! Đang chuyển hướng..."
+                });
+            }
+        } catch (err) {
+            setRegisterStatus({ error: loginError || "Đăng ký thất bại. Vui lòng thử lại.", success: null });
+        } finally {
+            setIsRegistering(false);
+        }
+    };
 
-        <div className="mt-6 text-center">
-          <button
-            onClick={toggleMode}
-            className="text-indigo-600 hover:text-indigo-800 font-medium transition duration-150"
-          >
-            {isLogin 
-              ? 'Chưa có tài khoản? Đăng ký ngay!' 
-              : 'Đã có tài khoản? Đăng nhập!'
-            }
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+    // Xử lý SUBMIT chung
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        // Xóa lỗi đăng ký cũ
+        setRegisterStatus({ error: null, success: null });
+        if (typeof handleLoginErrorReset === 'function') { handleLoginErrorReset(); } // Reset lỗi đăng nhập
 
-// Component chính để hiển thị AuthPage (Nếu bạn muốn kiểm tra ngay, 
-// bạn có thể đặt nó trong file index.js hoặc App.js của React)
-const App = () => (
-  <div className="font-sans">
-    <AuthPage />
-  </div>
-);
+        if (isLogin) {
+            // Gọi hàm xử lý Đăng nhập được truyền từ App.js
+            handleLogin(email, password); // Truyền email và password
+        } else {
+            handleSignUpSubmit(e); // Gọi hàm submit Đăng ký cục bộ
+        }
+    };
 
-export default App;
+    // Nếu đã đăng nhập, hiển thị nút Đăng xuất
+    if (isAuthenticated) {
+        return (
+            <div className="p-8 max-w-lg mx-auto mt-20 bg-white shadow-xl rounded-xl">
+                <p className="text-center text-xl text-gray-700 mb-6">
+                    Chào mừng! Bạn đã đăng nhập thành công.
+                </p>
+                <button 
+                    onClick={handleLogout}
+                    className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition duration-200 shadow-md"
+                >
+                    Đăng xuất
+                </button>
+            </div>
+        );
+    }
+
+
+    return (
+        // Container chính: căn giữa (mx-auto), độ rộng tối đa (max-w-md), tạo bóng (shadow-2xl)
+        <div className="max-w-md mx-auto mt-10 p-6 bg-white shadow-2xl rounded-xl border border-gray-100">
+            <h2 className="text-3xl font-extrabold text-center mb-6 text-gray-800">
+                {isLogin ? 'Đăng Nhập (Login)' : 'Đăng Ký (Sign Up)'}
+            </h2>
+
+            <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
+                {/* Tên (Chỉ khi Đăng ký) */}
+                {!isLogin && (
+                    <input 
+                        type="text" 
+                        placeholder="Họ và Tên" 
+                        value={name} 
+                        onChange={(e) => setName(e.target.value)} 
+                        required 
+                        // Các trường form được thiết kế toàn chiều rộng, có padding và bo góc
+                        className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
+                    />
+                )}
+
+                {/* Email */}
+                <input 
+                    type="email" 
+                    placeholder="Email" 
+                    value={email} 
+                    onChange={(e) => setEmail(e.target.value)} 
+                    required 
+                    className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
+                />
+                
+                {/* Mật khẩu */}
+                <input 
+                    type="password" 
+                    placeholder="Mật khẩu" 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    required 
+                    minLength={6} 
+                    className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
+                />
+
+                {/* Xác nhận Mật khẩu (Chỉ khi Đăng ký) */}
+                {!isLogin && (
+                    <input 
+                        type="password" 
+                        placeholder="Xác nhận Mật khẩu" 
+                        value={confirmPassword} 
+                        onChange={(e) => setConfirmPassword(e.target.value)} 
+                        required 
+                        minLength={6} 
+                        className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
+                    />
+                )}
+
+                {/* HIỂN THỊ LỖI / THÔNG BÁO */}
+                {isLogin && loginError && <p className="text-sm text-red-700 bg-red-100 p-2 rounded-md text-center">{loginError}</p>}
+                {!isLogin && registerStatus.error && <p className="text-sm text-red-700 bg-red-100 p-2 rounded-md text-center">{registerStatus.error}</p>}
+                {!isLogin && registerStatus.success && <p className="text-sm text-green-700 bg-green-100 p-2 rounded-md text-center">{registerStatus.success}</p>}
+
+                {/* Nút Submit */}
+                <button 
+                    type="submit" 
+                    disabled={isLogin ? loginLoading : isRegistering}
+                    className={`py-3 px-4 font-bold rounded-lg transition duration-300 shadow-md 
+                        ${(isLogin ? loginLoading : isRegistering) 
+                            ? 'bg-gray-400 cursor-not-allowed' 
+                            : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`
+                    }
+                >
+                    {isLogin 
+                        ? (loginLoading ? 'Đang đăng nhập (Logging In)...' : 'Đăng Nhập (Login)')
+                        : (isRegistering ? 'Đang đăng ký (Signing Up)...' : 'Đăng Ký (Sign Up)')
+                    }
+                </button>
+            </form>
+            
+            {/* Chuyển đổi giữa Login/Register */}
+            <p className="mt-6 text-center text-sm text-gray-600">
+                {isLogin ? "Chưa có tài khoản? " : "Đã có tài khoản? "}
+                <button 
+                    onClick={() => {
+                        setIsLogin(!isLogin);
+                        setRegisterStatus({ error: null, success: null });
+                        // Reset form fields
+                        setPassword('');
+                        setConfirmPassword('');
+                        setName('');
+                        // Gọi hàm reset lỗi đăng nhập
+                        if (typeof handleLoginErrorReset === 'function') { handleLoginErrorReset(); }
+                    }}
+                    className="font-bold text-indigo-600 hover:text-indigo-800 transition duration-150"
+                >
+                    {isLogin ? "Đăng ký (Sign Up) ngay!" : "Đăng nhập (Login)!"}
+                </button>
+            </p>
+        </div>
+    );
+}
+
+export default AuthPage;
