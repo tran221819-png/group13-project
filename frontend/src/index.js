@@ -7,9 +7,6 @@ import App from './App'; // Import App.js đã chứa Router
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
     <React.StrictMode>
-        {/* Chỉ cần BrowserRouter ở ngoài cùng để App.js dùng được useNavigate */}
-        <BrowserRouter> 
-            <App />
-        </BrowserRouter>
+        <App />
     </React.StrictMode>
 );

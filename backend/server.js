@@ -9,7 +9,7 @@ const cors = require('cors');
 // --- 1. Import Tuyến đường ---
 // Tuyến đường cho Đăng ký/Đăng nhập
 const auth = require('./routes/auth'); 
-// Tuyến đường cho CRUD User (Đã đổi tên biến thành 'user')
+// Tuyến đường cho CRUD User/Profile (Đã gộp)
 const user = require('./routes/user'); 
 
 // Load biến môi trường từ .env
@@ -18,6 +18,7 @@ dotenv.config();
 // Khởi tạo ứng dụng Express
 const app = express();
 
+
 // Lấy cổng và URI từ biến môi trường
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
@@ -25,7 +26,6 @@ const MONGO_URI = process.env.MONGO_URI;
 // Kiểm tra MONGO_URI trước khi kết nối (Khuyến nghị)
 if (!MONGO_URI) {
     console.error('❌ LỖI: MONGO_URI không được định nghĩa trong file .env');
-    // Thoát ứng dụng nếu không có URI
     process.exit(1);
 }
 
@@ -34,26 +34,27 @@ mongoose.connect(MONGO_URI)
     .then(() => console.log('✅ MongoDB database connection established successfully!'))
     .catch(err => {
         console.error('❌ MongoDB connection error. Vui lòng kiểm tra MONGO_URI trong .env', err);
-        // Thoát ứng dụng nếu kết nối DB thất bại
         process.exit(1); 
     });
 
 
 // --- 3. MIDDLEWARE ---
-// Cấu hình CORS để chỉ cho phép Frontend từ localhost:3000 truy cập
 app.use(cors({
     origin: 'http://localhost:3000', 
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true
 }));
 
-// Cho phép Express đọc JSON từ request body
 app.use(express.json());
 
 
 // --- 4. ĐỊNH TUYẾN (ROUTES) ---
 
+// Tuyến đường Auth
 app.use('/api/auth', auth); 
+
+// ✅ Tuyến đường Users/CRUD và Profile (Sử dụng user route duy nhất)
+// API Profile là /api/users/profile
 app.use('/api/users', user); 
 
 

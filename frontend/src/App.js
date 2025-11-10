@@ -1,54 +1,69 @@
-import React, { useState, useEffect } from 'react';
-import { User, LogOut, Trash2 } from 'lucide-react';
-// Lưu ý: Tailwind CSS được tải trong môi trường ngoài, không cần thẻ script ở đây.
+import React, { useState, useEffect, useCallback } from 'react';
+import { User, LogOut, Trash2, ArrowLeft, Save, Cake, Home } from 'lucide-react'; 
 
-// --- Giả lập API ---
-// *LƯU Ý: Mật khẩu được thêm vào initialUsers để khớp với logic mockApiCall.*
-const initialUsers = [
-    { id: 'u1', name: 'Admin User', email: 'admin@test.com', password: '123', role: 'Admin' },
+// ----------------------------------------------------------------------
+// 🛠️ CẤU HÌNH API THỰC TẾ
+// ----------------------------------------------------------------------
+
+const BASE_API_URL = 'http://localhost:5000/api'; 
+
+// --- Hàm gọi API thực tế ---
+const apiCall = async (endpoint, data, method = 'GET', token = null) => {
+    const url = `${BASE_API_URL}/${endpoint}`; 
     
-];
-
-let globalUsers = [...initialUsers];
-
-// Giả lập hàm API call
-const mockApiCall = async (endpoint, data) => {
-    // Thêm độ trễ để mô phỏng tải
-    await new Promise(resolve => setTimeout(resolve, 500)); 
-
-    if (endpoint.includes('login')) {
-        const user = globalUsers.find(u => u.email === data.email && u.password === data.password);
-        if (user) {
-            // Loại bỏ mật khẩu trước khi trả về
-            const safeUser = { ...user };
-            delete safeUser.password;
-            return { token: 'fake-jwt-' + user.id, user: safeUser };
-        } else {
-            throw new Error("Thông tin đăng nhập không hợp lệ.");
-        }
+    const headers = {
+        'Content-Type': 'application/json',
+    };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`; 
     }
 
-    if (endpoint.includes('signup')) {
-        const existingUser = globalUsers.find(u => u.email === data.email);
-        if (existingUser) {
-            throw new Error("Email đã tồn tại. Vui lòng đăng nhập.");
-        }
-        
-        // Thêm người dùng mới
-        const newUser = { 
-            id: 'u' + (globalUsers.length + 1), 
-            name: data.name, 
-            email: data.email, 
-            password: data.password, 
-            role: 'User' 
-        };
-        globalUsers.push(newUser);
-        return { success: true, message: 'Đăng ký thành công! Vui lòng đăng nhập.' };
+    const options = {
+        method,
+        headers,
+        body: data && (method === 'POST' || method === 'PUT' || method === 'PATCH') 
+            ? JSON.stringify(data) 
+            : null, 
+    };
+    
+    if (method === 'GET' || method === 'DELETE') {
+        delete options.body;
     }
+
+    const response = await fetch(url, options);
+    
+    const contentType = response.headers.get("content-type");
+    let result = {};
+    if (contentType && contentType.indexOf("application/json") !== -1) {
+        result = await response.json().catch(() => ({ message: response.statusText }));
+    } else {
+        result = { message: response.statusText };
+    }
+
+    if (!response.ok) {
+        const errorMessage = result.message || `Lỗi HTTP: ${response.status} (${response.statusText})`;
+        throw new Error(errorMessage);
+    }
+
+    return result; 
 };
 
-// --- Component AuthPage (Đăng nhập/Đăng ký) ---
+
+const getCurrentDate = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+const MAX_DATE = getCurrentDate(); 
+
+
+// ----------------------------------------------------------------------
+// ⚛️ COMPONENT AUTH PAGE (Đã sửa lỗi 400 Bad Request)
+// ----------------------------------------------------------------------
 const AuthPage = ({ onAuthSuccess, onSignupSuccess, authMessage }) => {
+    // ... (Code AuthPage giữ nguyên như bản sửa đổi trước)
     const [isLoginMode, setIsLoginMode] = useState(true);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -57,7 +72,6 @@ const AuthPage = ({ onAuthSuccess, onSignupSuccess, authMessage }) => {
     const [error, setError] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Chuyển đổi giữa Đăng nhập và Đăng ký
     const toggleMode = () => {
         setIsLoginMode(!isLoginMode);
         setError(null);
@@ -71,8 +85,7 @@ const AuthPage = ({ onAuthSuccess, onSignupSuccess, authMessage }) => {
         e.preventDefault();
         setError(null);
 
-        // Validation cơ bản
-        if (!email || !password || (!isLoginMode && (!name || !confirmPassword))) {
+        if (!email || !password || (!isLoginMode && (!name || !confirmPassword))) { 
             setError("Vui lòng điền đầy đủ tất cả các trường!");
             return;
         }
@@ -80,19 +93,25 @@ const AuthPage = ({ onAuthSuccess, onSignupSuccess, authMessage }) => {
             setError("Mật khẩu xác nhận không khớp.");
             return;
         }
-
+        
         setIsLoading(true);
 
-        const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/signup';
-        const data = isLoginMode ? { email, password } : { name, email, password };
+        const endpoint = isLoginMode ? 'auth/login' : 'auth/signup'; 
+        const method = 'POST';
         
+        // CHỈ GỬI name, email, password
+        const data = isLoginMode ? 
+            { email, password } : 
+            { name, email, password }; 
+
         try {
-            const result = await mockApiCall(endpoint, data);
+            const result = await apiCall(endpoint, data, method);
             
             if (isLoginMode) {
-                onAuthSuccess(result.user, result.token);
+                // Backend trả về user._id, ta dùng nó làm id ở frontend
+                onAuthSuccess(result.user, result.token); 
             } else {
-                onSignupSuccess(result.message);
+                onSignupSuccess(result.message || 'Đăng ký thành công!');
                 setIsLoginMode(true);
                 setName('');
                 setEmail('');
@@ -120,13 +139,11 @@ const AuthPage = ({ onAuthSuccess, onSignupSuccess, authMessage }) => {
                     {title}
                 </h2>
 
-                {/* Hiển thị thông báo LỖI hoặc THÀNH CÔNG */}
                 {error && (
                     <div className="p-3 text-sm font-medium text-red-700 bg-red-100 rounded-lg border border-red-200 mb-4">
                         {error}
                     </div>
                 )}
-                {/* authMessage từ App component, hiển thị sau khi đăng ký thành công */}
                 {authMessage && (
                     <div className="p-3 text-sm font-medium text-green-700 bg-green-100 rounded-lg border border-green-200 mb-4">
                         {authMessage}
@@ -135,19 +152,21 @@ const AuthPage = ({ onAuthSuccess, onSignupSuccess, authMessage }) => {
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {!isLoginMode && (
-                        <div>
-                            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Tên người dùng</label>
-                            <input
-                                id="name"
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-                                placeholder="Nhập tên của bạn"
-                                required={!isLoginMode}
-                                disabled={isLoading}
-                            />
-                        </div>
+                        <>
+                            <div>
+                                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Tên người dùng</label>
+                                <input
+                                    id="name"
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                                    placeholder="Nhập tên của bạn"
+                                    required={!isLoginMode}
+                                    disabled={isLoading}
+                                />
+                            </div>
+                        </>
                     )}
                     
                     <div>
@@ -158,7 +177,7 @@ const AuthPage = ({ onAuthSuccess, onSignupSuccess, authMessage }) => {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-                            placeholder="vd: tngoc5617@gmail.com (hoặc admin@test.com)"
+                            placeholder="vd: tngoc5617@gmail.com"
                             required
                             disabled={isLoading}
                         />
@@ -172,7 +191,7 @@ const AuthPage = ({ onAuthSuccess, onSignupSuccess, authMessage }) => {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-                            placeholder="Nhập mật khẩu (vd: 123)"
+                            placeholder="Nhập mật khẩu"
                             required
                             disabled={isLoading}
                         />
@@ -234,123 +253,415 @@ const AuthPage = ({ onAuthSuccess, onSignupSuccess, authMessage }) => {
     );
 };
 
-// --- Component Dashboard (Hiển thị Danh sách Người dùng) ---
-const Dashboard = ({ user, handleLogout }) => {
-    // Luôn lấy dữ liệu mới nhất từ biến toàn cục
-    const [users, setUsers] = useState(globalUsers);
+// ----------------------------------------------------------------------
+// ⚛️ COMPONENT PROFILE PAGE (SỬ DỤNG /api/profile)
+// ----------------------------------------------------------------------
+const ProfilePage = ({ user, handleUpdateProfile, handleGoBack }) => {
+    // Luôn đảm bảo giá trị khởi tạo là chuỗi rỗng
+    const [name, setName] = useState(user.name || user.displayName || '');
+    const [email, setEmail] = useState(user.email || '');
+    const [dob, setDob] = useState(user.dob || ''); 
+    const [hometown, setHometown] = useState(user.hometown || ''); 
     
-    // Kiểm tra quyền Admin
-    const isAdmin = user.role === 'Admin';
+    const [newPassword, setNewPassword] = useState('');
+    const [currentPassword, setCurrentPassword] = useState(''); 
+    const [isLoading, setIsLoading] = useState(false);
+    
+    const [formError, setFormError] = useState(null); 
 
-    // Giả lập chức năng xóa người dùng
-    const handleDelete = (id) => {
-        // Kiểm tra quyền (Front-end validation)
-        if (!isAdmin) {
-            console.error("Lỗi: Người dùng không có quyền quản trị để xóa.");
+    const apiCall = window.apiCall; 
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setFormError(null);
+        
+        // 1. Kiểm tra trường bắt buộc
+        if (!name.trim() || !email.trim()) { // Dùng .trim() để loại bỏ khoảng trắng
+            setFormError("Tên và Email không được để trống.");
             return;
         }
 
-        const targetUser = globalUsers.find(u => u.id === id);
-        if (targetUser.role === 'Admin') {
-            console.error("Lỗi: Không thể xóa tài khoản Quản trị viên.");
+        if (newPassword && !currentPassword) {
+            setFormError("Vui lòng cung cấp Mật khẩu hiện tại để đổi mật khẩu.");
             return;
         }
-        if (user.id === id) {
-            console.error("Lỗi: Không thể tự xóa tài khoản của mình.");
-            return;
+        
+        if (newPassword && newPassword.length < 6) {
+             setFormError("Mật khẩu mới phải có ít nhất 6 ký tự.");
+             return;
         }
 
-        // Thực hiện xóa (trong môi trường mock)
-        globalUsers = globalUsers.filter(u => u.id !== id);
-        setUsers(globalUsers);
+        setIsLoading(true);
+
+        // 2. ⭐ ĐIỀU CHỈNH LOGIC GỬI DỮ LIỆU ĐỂ ĐẢM BẢO CHUỖI KHÔNG PHẢI NULL
+        const data = {
+            name: name.trim(), // Gửi chuỗi đã loại bỏ khoảng trắng
+            displayName: name.trim(), 
+            email: email.trim(), 
+            // Đảm bảo dob và hometown là chuỗi rỗng nếu không có giá trị
+            dob: dob || '', 
+            hometown: hometown || '',
+        };
+
+        if (newPassword) {
+             data.newPassword = newPassword;
+             data.currentPassword = currentPassword;
+        }
+        
+        const token = localStorage.getItem('userToken'); 
+
+        try {
+            if (!apiCall) throw new Error("API Call function not available.");
+
+            const result = await apiCall('profile', data, 'PUT', token);
+            
+            const updatedUser = result.user || result; 
+
+            // Cập nhật state (đảm bảo cập nhật đầy đủ các trường)
+            handleUpdateProfile({
+                ...user,
+                name: updatedUser.displayName || updatedUser.name || name, 
+                email: updatedUser.email || email,
+                dob: updatedUser.dob || dob, // Cập nhật cả dob và hometown
+                hometown: updatedUser.hometown || hometown,
+            }); 
+            
+            setIsLoading(false); 
+            handleGoBack(); 
+            
+        } catch (err) {
+            // 3. ⭐ Cải thiện thông báo lỗi
+            const serverMessage = err.message ? err.message : (err.status === 401 ? "Phiên làm việc hết hạn. Vui lòng đăng nhập lại." : "Đã xảy ra lỗi không xác định ở server.");
+            const errorMessage = serverMessage || "Đã xảy ra lỗi khi cập nhật. Vui lòng thử lại.";
+            
+            // Nếu lỗi liên quan đến mật khẩu hiện tại, thông báo cụ thể
+            if (errorMessage.includes("Mật khẩu hiện tại")) {
+                 setFormError("Mật khẩu hiện tại không đúng hoặc không được cung cấp.");
+            } else {
+                 setFormError(errorMessage); 
+            }
+            
+            setIsLoading(false);
+        } 
     };
+    
+    return (
+        <div className="max-w-xl mx-auto mt-8 p-6 bg-white shadow-2xl rounded-xl">
+            <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-6">
+                <h1 className="text-3xl font-bold text-blue-700 flex items-center">
+                    <User className="w-6 h-6 mr-2 text-blue-500"/>
+                    Chỉnh sửa Hồ sơ
+                </h1>
+                <button
+                    onClick={handleGoBack}
+                    className="px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition duration-150 shadow-xl flex items-center"
+                    disabled={isLoading}
+                >
+                    <ArrowLeft className="w-4 h-4 mr-1"/> Quay lại
+                </button>
+            </div>
+            
+            {formError && (
+                <div className="p-3 text-sm font-medium text-red-700 bg-red-100 rounded-lg border border-red-200 mb-4">
+                    {formError}
+                </div>
+            )}
 
+            <form onSubmit={handleSubmit} className="space-y-6">
+                
+                <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Tên người dùng</label>
+                    <input
+                        id="name"
+                        type="text"
+                        value={name} 
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                        placeholder="Nhập tên mới"
+                        required
+                        disabled={isLoading}
+                    />
+                </div>
+                
+                <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ Email</label>
+                    <input
+                        id="email"
+                        type="email"
+                        value={email} 
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition bg-gray-50"
+                        placeholder="Nhập email mới"
+                        required
+                        disabled={isLoading}
+                    />
+                </div>
+
+                <div>
+                    <label htmlFor="dob" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                        <Cake className="w-4 h-4 mr-1 text-pink-500"/> Ngày sinh 
+                    </label>
+                    <input
+                        id="dob"
+                        type="date"
+                        value={dob}
+                        onChange={(e) => setDob(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                        disabled={isLoading}
+                        max={MAX_DATE} 
+                    />
+                </div>
+                
+                <div>
+                    <label htmlFor="hometown" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                        <Home className="w-4 h-4 mr-1 text-green-500"/> Quê quán 
+                    </label>
+                    <input
+                        id="hometown"
+                        type="text"
+                        value={hometown}
+                        onChange={(e) => setHometown(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                        placeholder="Nhập quê quán mới"
+                        disabled={isLoading}
+                    />
+                </div>
+                
+                <h3 className="text-lg font-semibold text-gray-800 pt-4 border-t border-gray-100">Đổi Mật khẩu (Không bắt buộc)</h3>
+                
+                <div>
+                    <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu hiện tại</label>
+                    <input
+                        id="currentPassword"
+                        type="password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                        placeholder="Nhập mật khẩu hiện tại (nếu đổi mật khẩu)"
+                        disabled={isLoading}
+                    />
+                </div>
+
+                <div>
+                    <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới (ít nhất 6 ký tự)</label>
+                    <input
+                        id="newPassword"
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                        placeholder="Để trống nếu không muốn đổi"
+                        disabled={isLoading}
+                    />
+                </div>
+                
+                <button
+                    type="submit"
+                    className={`w-full py-3 px-4 rounded-lg font-bold text-white shadow-lg transition duration-300 transform flex items-center justify-center ${
+                        isLoading 
+                            ? 'bg-gray-400 cursor-not-allowed' 
+                            : 'bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50'
+                    }`}
+                    disabled={isLoading}
+                >
+                    {isLoading ? (
+                        <span className="flex items-center justify-center">
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Đang Lưu...
+                        </span>
+                    ) : (
+                        <><Save className="w-5 h-5 mr-2" /> Lưu Thay Đổi</>
+                    )}
+                </button>
+            </form>
+        </div>
+    );
+};
+
+
+// ----------------------------------------------------------------------
+// ⚛️ COMPONENT DASHBOARD (Giữ nguyên)
+// ----------------------------------------------------------------------
+const Dashboard = ({ user, handleLogout, handleViewProfile, authMessage, clearAuthMessage }) => {
+    const [users, setUsers] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const isAdmin = user.role === 'Admin'; 
+    const token = localStorage.getItem('userToken');
+
+    useEffect(() => {
+        if (authMessage) {
+            const timer = setTimeout(() => {
+                clearAuthMessage();
+            }, 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [authMessage, clearAuthMessage]);
+
+    const fetchUsers = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            // Vẫn gọi /api/users, nhưng lưu ý: API này dùng MẢNG TẠM, 
+            // có thể không chứa user bạn vừa đăng nhập (MongoDB user).
+            const result = await apiCall('users', null, 'GET', token); 
+            
+            setUsers(result); 
+        } catch (error) {
+            console.error("Không thể tải danh sách người dùng:", error.message);
+            if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+                handleLogout();
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    }, [token, handleLogout]);
+
+    useEffect(() => {
+        if (token) {
+            fetchUsers();
+        } else {
+            setIsLoading(false);
+        }
+    }, [fetchUsers, token]); 
+
+    const handleDelete = async (id) => {
+        if (!isAdmin) {
+            alert("Bạn không có quyền quản trị để xóa người dùng.");
+            return;
+        }
+        
+        if (id === user.id) {
+             alert("Bạn không thể tự xóa tài khoản của mình.");
+             return;
+        }
+
+        if (window.confirm(`Bạn có chắc chắn muốn xóa người dùng ID: ${id}?`)) {
+            const token = localStorage.getItem('userToken');
+            try {
+                // API này có thể không hoạt động vì ID là CHUỖI MongoDB, 
+                // nhưng userController.js chỉ tìm ID SỐ NGUYÊN.
+                await apiCall(`users/${id}`, null, 'DELETE', token); 
+                setUsers(prevUsers => prevUsers.filter(u => u.id !== id));
+            } catch (error) {
+                console.error("Xóa người dùng thất bại:", error.message);
+                alert(`Xóa người dùng thất bại: ${error.message}`);
+            }
+        }
+    };
+    
     return (
         <div className="max-w-4xl mx-auto mt-8 p-6 bg-white shadow-2xl rounded-xl">
             <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-6">
                 <h1 className="text-3xl font-bold text-blue-700 flex items-center">
                     <User className="w-6 h-6 mr-2 text-blue-500"/>
                     Xin chào, {user.name}! 
-                    
                 </h1>
-                <button
-                    onClick={handleLogout}
-                    className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-150 shadow-xl flex items-center"
-                >
-                    <LogOut className="w-4 h-4 mr-1"/>
-                    Đăng Xuất
-                </button>
+                <div className="flex space-x-3">
+                    <button
+                        onClick={handleViewProfile}
+                        className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-150 shadow-xl flex items-center"
+                    >
+                        <User className="w-4 h-4 mr-1"/> Xem/Chỉnh sửa Hồ sơ
+                    </button>
+                    <button
+                        onClick={handleLogout} 
+                        className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-150 shadow-xl flex items-center"
+                    >
+                        <LogOut className="w-4 h-4 mr-1"/>
+                        Đăng Xuất
+                    </button>
+                </div>
             </div>
+            
+            {authMessage && (
+                <div className="p-3 text-sm font-medium text-green-700 bg-green-100 rounded-lg border border-green-200 mb-4">
+                    {authMessage}
+                </div>
+            )}
 
             <h2 className="text-2xl font-semibold text-gray-800 mb-4 border-b border-gray-100 pb-2">Danh sách người dùng hệ thống ({users.length})</h2>
             
-            <div className="overflow-x-auto bg-gray-50 rounded-lg border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-blue-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Tên</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Email</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Vai trò</th>
-                            {/* Cột Hành động chỉ hiển thị cho Admin */}
-                            {isAdmin && (
-                                <th className="px-6 py-3 text-right text-xs font-bold text-blue-700 uppercase tracking-wider">Hành động</th>
-                            )}
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-100">
-                        {users.map((u) => (
-                            <tr key={u.id} className={u.id === user.id ? 'bg-blue-50 font-medium' : 'hover:bg-gray-50 transition duration-100'}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{u.name} {u.id === user.id && '(Bạn)'}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.email}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                        u.role === 'Admin' ? 'bg-sky-100 text-sky-800' : 'bg-emerald-100 text-emerald-800'
-                                    }`}>
-                                        {u.role}
-                                    </span>
-                                </td>
-                                {/* Nút Hành động chỉ hiển thị cho Admin */}
+            {isLoading ? (
+                <div className="text-center py-8">
+                    <svg className="animate-spin h-8 w-8 text-blue-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="mt-2 text-gray-500">Đang tải dữ liệu người dùng từ backend...</p>
+                </div>
+            ) : (
+                <div className="overflow-x-auto bg-gray-50 rounded-lg border border-gray-200">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-blue-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Tên</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Email</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Ngày sinh</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Quê quán</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Vai trò</th>
                                 {isAdmin && (
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <button 
-                                            onClick={() => handleDelete(u.id)}
-                                            className="text-red-600 hover:text-red-800 transition duration-150 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center ml-auto"
-                                            disabled={u.id === user.id || u.role === 'Admin'} 
-                                        >
-                                            <Trash2 className="w-4 h-4 mr-1"/> Xóa
-                                        </button>
-                                    </td>
+                                    <th className="px-6 py-3 text-right text-xs font-bold text-blue-700 uppercase tracking-wider">Hành động</th>
                                 )}
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
+                            {users.map((u) => (
+                                <tr key={u.id} className={u.id === user.id ? 'bg-blue-50 font-medium' : 'hover:bg-gray-50 transition duration-100'}>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{u.name} {u.id === user.id && '(Bạn)'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.email}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.dob || '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.hometown || '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                            (u.role || 'User') === 'Admin' ? 'bg-sky-100 text-sky-800' : 'bg-emerald-100 text-emerald-800'
+                                        }`}>
+                                            {u.role || 'User'}
+                                        </span>
+                                    </td>
+                                    {isAdmin && (
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <button 
+                                                onClick={() => handleDelete(u.id)}
+                                                className="text-red-600 hover:text-red-800 transition duration-150 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center ml-auto"
+                                                disabled={u.id === user.id} 
+                                            >
+                                                <Trash2 className="w-4 h-4 mr-1"/> Xóa
+                                            </button>
+                                        </td>
+                                    )}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
             
-            <p className="mt-4 text-sm text-gray-500 italic">
-                Lưu ý: Danh sách này là dữ liệu giả lập. Đăng nhập bằng email **admin@test.com** (mật khẩu **123**) để có quyền quản trị. Bạn cũng có thể đăng ký tài khoản mới.
-            </p>
         </div>
     );
 };
 
-// --- Component App chính (Điều hướng) ---
+
+// ----------------------------------------------------------------------
+// ⚛️ COMPONENT APP CHÍNH (Giữ nguyên)
+// ----------------------------------------------------------------------
 const App = () => {
-    // State để theo dõi người dùng đã đăng nhập hay chưa và thông tin người dùng
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
-    const [authMessage, setAuthMessage] = useState(null); // Thông báo Đăng ký/Đăng xuất thành công
-    const [isAuthReady, setIsAuthReady] = useState(false); // Dùng để kiểm tra trạng thái ban đầu
+    const [authMessage, setAuthMessage] = useState(null); 
+    const [isAuthReady, setIsAuthReady] = useState(false); 
+    const [view, setView] = useState('dashboard'); 
 
-    // 1. LOGIC KIỂM TRA XÁC THỰC TỪ LOCALSTORAGE (CHẠY LẦN ĐẦU)
     useEffect(() => {
         const storedToken = localStorage.getItem('userToken');
-        const storedUser = localStorage.getItem('currentUser'); // Lấy JSON string
+        const storedUser = localStorage.getItem('currentUser'); 
 
         if (storedToken && storedUser) {
             try {
                 const user = JSON.parse(storedUser);
-                setCurrentUser(user);
+                const safeUser = { ...user, id: user.id || user._id }; 
+                setCurrentUser(safeUser);
                 setIsAuthenticated(true);
             } catch (e) {
                 console.error("Lỗi khi khôi phục thông tin người dùng:", e);
@@ -358,58 +669,86 @@ const App = () => {
                 localStorage.removeItem('currentUser');
             }
         }
-        setIsAuthReady(true); // Đánh dấu đã hoàn thành kiểm tra
+        setIsAuthReady(true); 
     }, []);
 
-    // Hàm được gọi khi Đăng nhập thành công
+    const clearAuthMessage = useCallback(() => setAuthMessage(null), []);
+
     const handleAuthSuccess = (user, token) => {
-        setCurrentUser(user);
+        const safeUser = { ...user, id: user.id || user._id };
+        setCurrentUser(safeUser);
         localStorage.setItem('userToken', token);
-        localStorage.setItem('currentUser', JSON.stringify(user)); // Lưu thông tin người dùng
+        localStorage.setItem('currentUser', JSON.stringify(safeUser)); 
         setIsAuthenticated(true);
-        setAuthMessage(null); // Xóa mọi thông báo cũ
+        setView('dashboard'); 
+        setAuthMessage(null); 
     };
     
-    // Hàm được gọi khi Đăng ký thành công
     const handleSignupSuccess = (message) => {
         setAuthMessage(message);
     };
 
-    // Hàm đăng xuất
+    const handleUpdateProfile = (updatedUser) => {
+        const safeUser = { ...currentUser, ...updatedUser, id: updatedUser.id || updatedUser._id };
+        setCurrentUser(safeUser);
+        localStorage.setItem('currentUser', JSON.stringify(safeUser));
+        setAuthMessage("Hồ sơ của bạn đã được cập nhật thành công!");
+    };
+
     const handleLogout = () => {
         localStorage.removeItem('userToken');
         localStorage.removeItem('currentUser');
         setCurrentUser(null);
         setIsAuthenticated(false);
-        // Có thể thêm thông báo đăng xuất thành công nếu cần, nhưng tôi để nó đơn giản
+        setView('dashboard'); 
+        setAuthMessage("Bạn đã đăng xuất thành công.");
     };
 
-    // Màn hình loading ban đầu
-    if (!isAuthReady) {
-        return (
-            <div className="min-h-screen bg-gray-100 flex justify-center items-center">
-                <div className="text-xl font-semibold text-blue-600">Đang tải...</div>
-            </div>
-        );
-    }
+    const renderContent = () => {
+        if (!isAuthReady) {
+            return (
+                <div className="min-h-screen bg-gray-100 flex justify-center items-center">
+                    <div className="text-xl font-semibold text-blue-600">Đang tải...</div>
+                </div>
+            );
+        }
 
-    // Nếu đã xác thực, hiển thị Dashboard
-    if (isAuthenticated) {
-        return (
-            <div className="min-h-screen bg-gray-100 p-4">
-                <Dashboard user={currentUser} handleLogout={handleLogout} />
-            </div>
-        );
-    }
+        if (!isAuthenticated || !currentUser) {
+            return (
+                <AuthPage 
+                    onAuthSuccess={handleAuthSuccess} 
+                    onSignupSuccess={handleSignupSuccess}
+                    authMessage={authMessage} 
+                />
+            );
+        }
 
-    // Nếu chưa xác thực, hiển thị trang Đăng nhập/Đăng ký
-    return (
-        <div className="min-h-screen bg-gray-100 flex justify-center items-center">
-            <AuthPage 
-                onAuthSuccess={handleAuthSuccess} 
-                onSignupSuccess={handleSignupSuccess}
-                authMessage={authMessage} // Truyền thông báo Đăng ký/Đăng xuất thành công xuống AuthPage
+        if (view === 'profile') {
+            return (
+                <ProfilePage
+                    key={`profile-${currentUser.id}-${view}`} 
+                    user={currentUser}
+                    handleUpdateProfile={handleUpdateProfile}
+                    handleGoBack={() => setView('dashboard')} 
+                />
+            );
+        }
+        
+        return (
+            <Dashboard 
+                key={`dashboard-${currentUser.id}-${view}`}
+                user={currentUser} 
+                handleLogout={handleLogout} 
+                handleViewProfile={() => setView('profile')} 
+                authMessage={authMessage} 
+                clearAuthMessage={clearAuthMessage}
             />
+        );
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-100 p-4">
+            {renderContent()}
         </div>
     );
 };
